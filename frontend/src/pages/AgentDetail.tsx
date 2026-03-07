@@ -2593,7 +2593,7 @@ export default function AgentDetail() {
                                                     <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '6px 10px', borderRadius: '6px' }}>💡 {t('channelGuide.slack.note')}</div>
                                                 </details>
                                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                                    <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '4px 12px' }} onClick={() => { setSlackForm({ bot_token: '', signing_secret: '' }); setSlackEditing(true); }}>Edit</button>
+                                                    <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '4px 12px' }} onClick={() => { setSlackForm({ bot_token: slackConfig?.app_secret || '', signing_secret: slackConfig?.encrypt_key || '' }); setSlackEditing(true); }}>Edit</button>
                                                     <button className="btn btn-danger" style={{ fontSize: '12px', padding: '4px 12px' }} onClick={() => deleteSlack.mutate()}>Disconnect</button>
                                                 </div>
                                             </div>
@@ -2677,7 +2677,7 @@ export default function AgentDetail() {
                                                     <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '6px 10px', borderRadius: '6px' }}>💡 {t('channelGuide.discord.note')}</div>
                                                 </details>
                                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                                    <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '4px 12px' }} onClick={() => { setDiscordForm({ application_id: discordConfig?.app_id || '', bot_token: '', public_key: '' }); setDiscordEditing(true); }}>Edit</button>
+                                                    <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '4px 12px' }} onClick={() => { setDiscordForm({ application_id: discordConfig?.app_id || '', bot_token: discordConfig?.app_secret || '', public_key: discordConfig?.encrypt_key || '' }); setDiscordEditing(true); }}>Edit</button>
                                                     <button className="btn btn-danger" style={{ fontSize: '12px', padding: '4px 12px' }} onClick={() => deleteDiscord.mutate()}>Disconnect</button>
                                                 </div>
                                             </div>
@@ -2787,7 +2787,7 @@ export default function AgentDetail() {
                                                     <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '6px 10px', borderRadius: '6px' }}>💡 {t('channelGuide.feishu.note')}</div>
                                                 </details>
                                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                                    <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '4px 12px' }} onClick={() => { setChannelForm({ app_id: channelConfig.app_id || '', app_secret: '', encrypt_key: '' }); setFeishuEditing(true); }}>Edit</button>
+                                                    <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '4px 12px' }} onClick={() => { setChannelForm({ app_id: channelConfig.app_id || '', app_secret: channelConfig.app_secret || '', encrypt_key: channelConfig.encrypt_key || '' }); setFeishuEditing(true); }}>Edit</button>
                                                     <button className="btn btn-danger" style={{ fontSize: '12px', padding: '4px 12px' }} onClick={async () => { await channelApi.delete(id!); queryClient.invalidateQueries({ queryKey: ['channel', id] }); }}>Disconnect</button>
                                                 </div>
                                             </div>

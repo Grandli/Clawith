@@ -258,6 +258,8 @@ class ChannelConfigOut(BaseModel):
     agent_id: uuid.UUID
     channel_type: str
     app_id: str | None = None
+    app_secret: str | None = None
+    encrypt_key: str | None = None
     is_configured: bool
     is_connected: bool
     last_tested_at: datetime | None = None
