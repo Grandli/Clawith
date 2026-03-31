@@ -103,7 +103,7 @@ class Settings(BaseSettings):
     SANDBOX_API_URL: str = ""
     SANDBOX_CPU_LIMIT: str = "0.5"
     SANDBOX_MEMORY_LIMIT: str = "256m"
-    SANDBOX_ALLOW_NETWORK: bool = False
+    SANDBOX_ALLOW_NETWORK: bool = True
     SANDBOX_DEFAULT_TIMEOUT: int = 30
     SANDBOX_MAX_TIMEOUT: int = 60
 

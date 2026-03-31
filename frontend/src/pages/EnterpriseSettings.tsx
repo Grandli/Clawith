@@ -889,6 +889,8 @@ const PRESET_MODELS: Record<string, string[]> = {
     'anthropic': ['claude-3-5-sonnet-20241022', 'claude-3-5-sonnet-20240620', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
     'google': ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash'],
     'deepseek': ['deepseek-chat', 'deepseek-reasoner'],
+    'minimax': ['MiniMax-M2.5', 'MiniMax-M2.5-lightning', 'MiniMax-M2.5-highspeed'],
+    'kimi': ['kimi', 'kimi-k2.5', 'kimi-k2-thinking', 'kimi-k2-turbo'],
     'ollama': ['llama3.1', 'llama3.2', 'qwen2.5', 'mistral', 'gemma2'],
     'azure': ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'],
 };
