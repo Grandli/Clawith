@@ -1222,6 +1222,50 @@ AGENT_TOOLS = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "local_browser",
+            "description": "Use local Playwright browser (no AgentBay) for web navigation and interaction.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["goto", "click", "type", "screenshot", "close"],
+                        "description": "Browser action to perform",
+                    },
+                    "session_id": {
+                        "type": "string",
+                        "description": "Optional browser session id, default is 'default'",
+                    },
+                    "url": {"type": "string", "description": "Target URL for action=goto"},
+                    "selector": {"type": "string", "description": "CSS selector for click/type"},
+                    "text": {"type": "string", "description": "Input text for action=type"},
+                    "wait_for": {
+                        "type": "string",
+                        "description": "Playwright wait_until value for goto (e.g. domcontentloaded, load, networkidle)",
+                    },
+                    "timeout_ms": {
+                        "type": "integer",
+                        "description": "Timeout in milliseconds (default 15000)",
+                        "default": 15000,
+                    },
+                    "headless": {
+                        "type": "boolean",
+                        "description": "Run chromium in headless mode (default true)",
+                        "default": True,
+                    },
+                    "save_to_workspace": {
+                        "type": "boolean",
+                        "description": "When action=screenshot, save image to workspace/ (default true)",
+                        "default": True,
+                    },
+                },
+                "required": ["action"],
+            }
+        }
+    },
     # ── AgentBay Tools ────────────────────────────────────────────
     {
         "type": "function",
@@ -1599,6 +1643,8 @@ async def _execute_tool_direct(
         elif tool_name == "execute_code":
             logger.info(f"[DirectTool] Executing code with arguments: {arguments}")
             return await _execute_code(agent_id, ws, arguments)
+        elif tool_name == "local_browser":
+            return await _local_browser(agent_id, ws, arguments)
         elif tool_name == "web_search":
             return await _web_search(arguments, agent_id)
         elif tool_name == "jina_search":
@@ -1796,6 +1842,8 @@ async def execute_tool(
             result = await _publish_page(agent_id, user_id, ws, arguments)
         elif tool_name == "list_published_pages":
             result = await _list_published_pages(agent_id)
+        elif tool_name == "local_browser":
+            result = await _local_browser(agent_id, ws, arguments)
         # ── AgentBay Tools ──
         elif tool_name == "agentbay_browser_navigate":
             result = await _agentbay_browser_navigate(agent_id, ws, arguments)
@@ -6874,6 +6922,13 @@ async def _list_published_pages(agent_id: uuid.UUID) -> str:
 
 
 # ─── AgentBay Tool Handlers ─────────────────────────────────────
+
+async def _local_browser(agent_id: Optional[uuid.UUID], ws: Path, arguments: dict) -> str:
+    """Local Playwright-based browser handler (without AgentBay)."""
+    from app.services.local_playwright import run_local_browser
+
+    return await run_local_browser(agent_id, ws, arguments)
+
 
 async def _agentbay_browser_navigate(agent_id: Optional[uuid.UUID], ws: Path, arguments: dict) -> str:
     """AgentBay browser navigation.

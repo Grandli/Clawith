@@ -521,6 +521,53 @@ BUILTIN_TOOLS = [
         },
     },
     {
+        "name": "local_browser",
+        "display_name": "Local Browser (Playwright)",
+        "description": "Use local Playwright browser (no AgentBay) for web navigation and interaction. Supports goto/click/type/screenshot/close actions.",
+        "category": "code",
+        "icon": "🌐",
+        "is_default": False,
+        "parameters_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["goto", "click", "type", "screenshot", "close"],
+                    "description": "Browser action to perform",
+                },
+                "session_id": {
+                    "type": "string",
+                    "description": "Optional browser session id, default is 'default'",
+                },
+                "url": {"type": "string", "description": "Target URL for action=goto"},
+                "selector": {"type": "string", "description": "CSS selector for click/type"},
+                "text": {"type": "string", "description": "Input text for action=type"},
+                "wait_for": {
+                    "type": "string",
+                    "description": "Playwright wait_until for goto: domcontentloaded/load/networkidle/commit",
+                },
+                "timeout_ms": {
+                    "type": "integer",
+                    "description": "Timeout in milliseconds (default 15000)",
+                    "default": 15000,
+                },
+                "headless": {
+                    "type": "boolean",
+                    "description": "Run chromium in headless mode (default true)",
+                    "default": True,
+                },
+                "save_to_workspace": {
+                    "type": "boolean",
+                    "description": "When action=screenshot, save image to workspace/ (default true)",
+                    "default": True,
+                },
+            },
+            "required": ["action"],
+        },
+        "config": {},
+        "config_schema": {},
+    },
+    {
         "name": "upload_image",
         "display_name": "Upload Image",
         "description": "Upload images from the workspace or a URL to ImageKit CDN and get a public URL. Useful for sharing images externally or embedding them in reports.",
