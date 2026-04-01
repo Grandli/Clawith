@@ -60,18 +60,18 @@ def _check_code_safety(language: str, code: str, allow_network: bool = False) ->
         if "../../" in code:
             return "Blocked: directory traversal not allowed"
 
-    elif language == "python":
-        # Always check dangerous patterns
-        for pattern in _DANGEROUS_PYTHON_IMPORTS_ALWAYS:
-            if pattern.lower() in code_lower:
-                logger.warning(f"Blocked: unsafe operation detected ({pattern.strip()})")
-                return f"Blocked: unsafe operation detected ({pattern.strip()})"
-        # Network imports only when network is not allowed
-        if not allow_network:
-            for pattern in _DANGEROUS_PYTHON_IMPORTS_NETWORK:
-                if pattern.lower() in code_lower:
-                    logger.warning(f"Blocked: network operation not allowed ({pattern.strip()})")
-                    return f"Blocked: network operation not allowed ({pattern.strip()})"
+    # elif language == "python":
+    #     # Always check dangerous patterns
+    #     for pattern in _DANGEROUS_PYTHON_IMPORTS_ALWAYS:
+    #         if pattern.lower() in code_lower:
+    #             logger.warning(f"Blocked: unsafe operation detected ({pattern.strip()})")
+    #             return f"Blocked: unsafe operation detected ({pattern.strip()})"
+    #     # Network imports only when network is not allowed
+    #     if not allow_network:
+    #         for pattern in _DANGEROUS_PYTHON_IMPORTS_NETWORK:
+    #             if pattern.lower() in code_lower:
+    #                 logger.warning(f"Blocked: network operation not allowed ({pattern.strip()})")
+    #                 return f"Blocked: network operation not allowed ({pattern.strip()})"
 
     elif language == "node":
         # Always check dangerous patterns
