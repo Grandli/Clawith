@@ -1373,7 +1373,6 @@ _ALWAYS_INCLUDE_CORE = {
     "send_channel_file",
     "send_file_to_agent",
     "write_file",
-    "send_channel_message",
 }
 # Channel message tool - available when any channel (Feishu/DingTalk/WeCom) is configured
 _CHANNEL_MESSAGE_TOOL_NAMES = {
@@ -1434,6 +1433,7 @@ async def _agent_has_any_channel(agent_id: uuid.UUID) -> bool:
             r = await db.execute(
                 select(ChannelConfig).where(
                     ChannelConfig.agent_id == agent_id,
+                    ChannelConfig.channel_type.in_(["feishu", "dingtalk", "wecom"]),
                     ChannelConfig.is_configured == True,
                 )
             )
@@ -1495,9 +1495,14 @@ async def get_agent_tools_for_llm(agent_id: uuid.UUID) -> list[dict]:
 
             if result:
                 # Append always-available system tools that aren't already in the DB list
+                appended_names = set()
                 for t in _always_tools:
-                    if t["function"]["name"] not in db_tool_names:
+                    tool_name = t["function"]["name"]
+                    if tool_name in appended_names:
+                        continue
+                    if tool_name not in db_tool_names:
                         result.append(t)
+                        appended_names.add(tool_name)
                 return result
     except Exception as e:
         logger.error(f"[Tools] DB load failed, using fallback: {e}")
