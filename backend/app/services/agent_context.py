@@ -97,6 +97,9 @@ def _load_skills_index(agent_id: uuid.UUID) -> str:
 
             # Case 1: Folder-based skill — skills/<folder>/SKILL.md
             if entry.is_dir():
+                # Disabled folder-based skills are marked by skills/<folder>/.disabled
+                if (entry / ".disabled").exists():
+                    continue
                 skill_md = entry / "SKILL.md"
                 if not skill_md.exists():
                     # Also try lowercase skill.md

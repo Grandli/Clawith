@@ -98,9 +98,11 @@ export default function FileBrowser({
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<{ path: string; name: string } | null>(null);
+    const [manageTarget, setManageTarget] = useState<{ path: string; name: string; disabled: boolean } | null>(null);
     const [promptModal, setPromptModal] = useState<{ title: string; placeholder: string; action: string } | null>(null);
     const [promptValue, setPromptValue] = useState('');
     const [uploadProgress, setUploadProgress] = useState<{ fileName: string; percent: number } | null>(null);
+    const [skillDisabledMap, setSkillDisabledMap] = useState<Record<string, boolean>>({});
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     // Auto-resize textarea to match content height
@@ -140,8 +142,27 @@ export default function FileBrowser({
                 data = data.filter(f => f.is_dir || fileFilter.some(ext => f.name.toLowerCase().endsWith(ext)));
             }
             setFiles(data);
+            const isSkillRootView = rootPath === 'skills' && currentPath === rootPath;
+            if (isSkillRootView) {
+                const dirs = data.filter(f => f.is_dir);
+                const statusEntries = await Promise.all(
+                    dirs.map(async (d) => {
+                        try {
+                            const children = await api.list(d.path || `${currentPath}/${d.name}`);
+                            const disabled = children.some(ch => ch.name === '.disabled');
+                            return [d.path || `${currentPath}/${d.name}`, disabled] as const;
+                        } catch {
+                            return [d.path || `${currentPath}/${d.name}`, false] as const;
+                        }
+                    })
+                );
+                setSkillDisabledMap(Object.fromEntries(statusEntries));
+            } else {
+                setSkillDisabledMap({});
+            }
         } catch {
             setFiles([]);
+            setSkillDisabledMap({});
         }
         setLoading(false);
     }, [api, currentPath, singleFile, fileFilter]);
@@ -189,6 +210,25 @@ export default function FileBrowser({
             showToast('Deleted');
         } catch (err: any) {
             showToast('Delete failed: ' + (err.message || ''), 'error');
+        }
+    };
+
+    const handleToggleSkillEnabled = async () => {
+        if (!manageTarget) return;
+        try {
+            const markerPath = `${manageTarget.path}/.disabled`;
+            if (manageTarget.disabled) {
+                await api.delete(markerPath);
+                showToast(t('agent.skills.enabled', 'Skill enabled'));
+            } else {
+                await api.write(markerPath, 'disabled');
+                showToast(t('agent.skills.disabled', 'Skill disabled'));
+            }
+            setManageTarget(null);
+            await reload();
+            onRefresh?.();
+        } catch (err: any) {
+            showToast((t('common.failed', 'Failed') + ': ' + (err.message || '')), 'error');
         }
     };
 
@@ -337,6 +377,42 @@ export default function FileBrowser({
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                         <button className="btn btn-secondary" onClick={() => { setPromptModal(null); setPromptValue(''); }}>{t('common.cancel')}</button>
                         <button className="btn btn-primary" onClick={handlePromptConfirm} disabled={!promptValue.trim()}>OK</button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderManageModal = () => {
+        if (!manageTarget) return null;
+        return (
+            <div
+                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}
+                onClick={(e) => { if (e.target === e.currentTarget) setManageTarget(null); }}
+            >
+                <div style={{ background: 'var(--bg-primary)', borderRadius: '12px', padding: '24px', width: '420px', border: '1px solid var(--border-subtle)', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
+                    <h4 style={{ marginBottom: '10px', fontSize: '15px' }}>
+                        {t('common.manage', 'Manage')} - {manageTarget.name}
+                    </h4>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                        {manageTarget.disabled ? t('agent.skills.currentlyDisabled', 'Current status: disabled') : t('agent.skills.currentlyEnabled', 'Current status: enabled')}
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                        <button className="btn btn-secondary" onClick={() => setManageTarget(null)}>
+                            {t('common.cancel')}
+                        </button>
+                        <button className="btn btn-secondary" onClick={handleToggleSkillEnabled}>
+                            {manageTarget.disabled ? t('common.enable', 'Enable') : t('common.disable', 'Disable')}
+                        </button>
+                        <button
+                            className="btn btn-danger"
+                            onClick={() => {
+                                setDeleteTarget({ path: manageTarget.path, name: manageTarget.name });
+                                setManageTarget(null);
+                            }}
+                        >
+                            {t('common.delete')}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -547,6 +623,11 @@ export default function FileBrowser({
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>{f.is_dir ? '/' : '·'}</span>
                                 <span style={{ fontWeight: 500, fontSize: '13px' }}>{fileFilter?.includes('.md') ? f.name.replace('.md', '') : f.name}</span>
+                                {rootPath === 'skills' && currentPath === rootPath && f.is_dir && skillDisabledMap[f.path || `${currentPath}/${f.name}`] && (
+                                    <span style={{ fontSize: '10px', color: 'var(--warning)', border: '1px solid var(--warning)', borderRadius: '10px', padding: '1px 6px' }}>
+                                        {t('common.disabled', 'Disabled')}
+                                    </span>
+                                )}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 {f.size != null && <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{(f.size / 1024).toFixed(1)} KB</span>}
@@ -558,7 +639,19 @@ export default function FileBrowser({
                                         ⬇
                                     </a>
                                 )}
-                                {canDelete && (
+                                {canDelete && rootPath === 'skills' && currentPath === rootPath && f.is_dir ? (
+                                    <button
+                                        className="btn btn-ghost"
+                                        style={{ padding: '2px 8px', fontSize: '11px' }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const p = f.path || `${currentPath}/${f.name}`;
+                                            setManageTarget({ path: p, name: f.name, disabled: !!skillDisabledMap[p] });
+                                        }}
+                                    >
+                                        {t('common.manage', 'Manage')}
+                                    </button>
+                                ) : canDelete && (
                                     <button className="btn btn-ghost" style={{ padding: '2px 6px', fontSize: '11px', color: 'var(--error)' }}
                                         onClick={(e) => { e.stopPropagation(); setDeleteTarget({ path: f.path || `${currentPath}/${f.name}`, name: f.name }); }}>
                                         ×
@@ -571,6 +664,7 @@ export default function FileBrowser({
             )}
 
             {renderDeleteModal()}
+            {renderManageModal()}
             {renderPromptModal()}
             {renderToast()}
         </div>
