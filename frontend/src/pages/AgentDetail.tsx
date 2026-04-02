@@ -3406,7 +3406,27 @@ function AgentDetailInner() {
                             upload: (file, path, onProgress) => fileApi.upload(id!, file, path + '/', onProgress),
                             downloadUrl: (p) => fileApi.downloadUrl(id!, p),
                         };
-                        return <FileBrowser api={adapter} rootPath="workspace" features={{ upload: true, newFile: true, newFolder: true, edit: true, delete: true, directoryNavigation: true }} />;
+                        const workspaceParent = id || '-';
+                        return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <div
+                                    className="card"
+                                    style={{
+                                        padding: '10px 12px',
+                                        fontSize: '12px',
+                                        color: 'var(--text-secondary)',
+                                        display: 'flex',
+                                        gap: '16px',
+                                        flexWrap: 'wrap',
+                                    }}
+                                >
+                                    <span>
+                                        {t('agent.workspace.parentDir', 'Workspace parent')}: <code>{workspaceParent}</code>
+                                    </span>
+                                </div>
+                                <FileBrowser api={adapter} rootPath="workspace" features={{ upload: true, newFile: true, newFolder: true, edit: true, delete: true, directoryNavigation: true }} />
+                            </div>
+                        );
                     })()
                 }
 
