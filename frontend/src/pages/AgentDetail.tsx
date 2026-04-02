@@ -1987,6 +1987,16 @@ function AgentDetailInner() {
         queryFn: () => fetchAuth<any>(`/agents/${id}/permissions`),
         enabled: !!id && activeTab === 'settings',
     });
+    const { data: permCandidates = [] } = useQuery({
+        queryKey: ['agent-permission-candidates', id],
+        queryFn: () => fetchAuth<any[]>(`/agents/${id}/permission-candidates`),
+        enabled: !!id && activeTab === 'settings' && !!permData?.is_owner,
+    });
+    const [permUserSearch, setPermUserSearch] = useState('');
+    const [selectedScopeIds, setSelectedScopeIds] = useState<string[]>([]);
+    useEffect(() => {
+        setSelectedScopeIds((permData?.scope_ids || []) as string[]);
+    }, [permData?.scope_ids, id]);
 
     // ─── Soul editor ─────────────────────────────────────
     const [soulEditing, setSoulEditing] = useState(false);
@@ -4518,10 +4528,37 @@ function AgentDetailInner() {
                                             console.error('Failed to update access level', e);
                                         }
                                     };
+                                    const handleScopeIdsChange = async (nextScopeIds: string[]) => {
+                                        try {
+                                            setSelectedScopeIds(nextScopeIds);
+                                            await fetchAuth(`/agents/${id}/permissions`, {
+                                                method: 'PUT',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    scope_type: 'user',
+                                                    scope_ids: nextScopeIds,
+                                                    access_level: permData?.access_level || 'use',
+                                                }),
+                                            });
+                                            queryClient.invalidateQueries({ queryKey: ['agent-permissions', id] });
+                                            queryClient.invalidateQueries({ queryKey: ['agent', id] });
+                                        } catch (e) {
+                                            console.error('Failed to update user scope ids', e);
+                                        }
+                                    };
 
                                     const isOwner = permData?.is_owner ?? false;
                                     const currentScope = permData?.scope_type || 'company';
                                     const currentAccessLevel = permData?.access_level || 'use';
+                                    const candidateUsers = (permCandidates || []).filter((u: any) => {
+                                        const q = permUserSearch.trim().toLowerCase();
+                                        if (!q) return true;
+                                        return (
+                                            (u.name || '').toLowerCase().includes(q) ||
+                                            (u.username || '').toLowerCase().includes(q) ||
+                                            (u.email || '').toLowerCase().includes(q)
+                                        );
+                                    });
 
                                     return (
                                         <div className="card" style={{ marginBottom: '12px' }}>
@@ -4604,6 +4641,73 @@ function AgentDetailInner() {
                                                                 <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px', marginLeft: '20px' }}>{opt.desc}</div>
                                                             </label>
                                                         ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {currentScope === 'user' && isOwner && (
+                                                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '12px' }}>
+                                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '8px' }}>
+                                                        {t('agent.settings.perm.allowedUsers', 'Allowed Users')}
+                                                    </label>
+                                                    <input
+                                                        className="input"
+                                                        placeholder={t('agent.settings.perm.searchUsers', 'Search by name / username / email')}
+                                                        value={permUserSearch}
+                                                        onChange={(e) => setPermUserSearch(e.target.value)}
+                                                        style={{ width: '100%', marginBottom: '8px', fontSize: '12px' }}
+                                                    />
+                                                    <div
+                                                        style={{
+                                                            maxHeight: '180px',
+                                                            overflowY: 'auto',
+                                                            border: '1px solid var(--border-subtle)',
+                                                            borderRadius: '8px',
+                                                            padding: '8px',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            gap: '6px',
+                                                        }}
+                                                    >
+                                                        {candidateUsers.map((u: any) => {
+                                                            const checked = selectedScopeIds.includes(u.id);
+                                                            return (
+                                                                <label
+                                                                    key={u.id}
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '8px',
+                                                                        padding: '6px 8px',
+                                                                        borderRadius: '6px',
+                                                                        background: checked ? 'rgba(99,102,241,0.06)' : 'transparent',
+                                                                    }}
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={checked}
+                                                                        onChange={(e) => {
+                                                                            const next = e.target.checked
+                                                                                ? [...selectedScopeIds, u.id]
+                                                                                : selectedScopeIds.filter((sid) => sid !== u.id);
+                                                                            handleScopeIdsChange(next);
+                                                                        }}
+                                                                        style={{ accentColor: 'var(--accent-primary)' }}
+                                                                    />
+                                                                    <div style={{ minWidth: 0 }}>
+                                                                        <div style={{ fontSize: '12px', fontWeight: 500 }}>{u.name}</div>
+                                                                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                            @{u.username} · {u.email}
+                                                                        </div>
+                                                                    </div>
+                                                                </label>
+                                                            );
+                                                        })}
+                                                        {candidateUsers.length === 0 && (
+                                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', padding: '8px' }}>
+                                                                {t('common.noData', 'No data')}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}

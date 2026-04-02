@@ -451,6 +451,34 @@ async def update_agent_permissions(
     return {"status": "ok"}
 
 
+@router.get("/{agent_id}/permission-candidates")
+async def list_agent_permission_candidates(
+    agent_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List candidate users for user-scope permissions (owner/admin only)."""
+    agent, _access = await check_agent_access(db, current_user, agent_id)
+    if not is_agent_creator(current_user, agent):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only owner or admin can list permission candidates")
+
+    query = select(User).where(User.is_active == True)
+    if agent.tenant_id:
+        query = query.where(User.tenant_id == agent.tenant_id)
+    result = await db.execute(query.order_by(User.display_name.asc(), User.username.asc()))
+    users = result.scalars().all()
+
+    return [
+        {
+            "id": str(u.id),
+            "name": u.display_name or u.username,
+            "username": u.username,
+            "email": u.email,
+        }
+        for u in users
+    ]
+
+
 @router.patch("/{agent_id}", response_model=AgentOut)
 async def update_agent(
     agent_id: uuid.UUID,
