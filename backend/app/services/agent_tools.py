@@ -4398,7 +4398,7 @@ async def _execute_code(agent_id: Optional[uuid.UUID], ws: Path, arguments: dict
     """Execute code using the configured sandbox backend."""
     language = arguments.get("language", "python")
     code = arguments.get("code", "")
-    timeout = min(arguments.get("timeout", 30), 60)  # Max 60 seconds
+    timeout = min(arguments.get("timeout", 30), 1800)  # Max 1800 seconds
 
     if not code.strip():
         return "❌ No code provided"
@@ -4457,10 +4457,11 @@ async def _execute_code(agent_id: Optional[uuid.UUID], ws: Path, arguments: dict
 async def _execute_code_legacy(ws: Path, arguments: dict) -> str:
     """Legacy subprocess-based code execution (fallback)."""
     import asyncio
+    from app.services.python_env import build_agent_exec_env, resolve_agent_python_bin
 
     language = arguments.get("language", "python")
     code = arguments.get("code", "")
-    timeout = min(arguments.get("timeout", 30), 60)
+    timeout = min(arguments.get("timeout", 30), 1800)
 
     if not code.strip():
         return "❌ No code provided"
@@ -4481,7 +4482,7 @@ async def _execute_code_legacy(ws: Path, arguments: dict) -> str:
     # Determine command and file extension
     if language == "python":
         ext = ".py"
-        cmd_prefix = ["python3"]
+        cmd_prefix = [resolve_agent_python_bin()]
     elif language == "bash":
         ext = ".sh"
         cmd_prefix = ["bash"]
@@ -4497,9 +4498,7 @@ async def _execute_code_legacy(ws: Path, arguments: dict) -> str:
         script_path.write_text(code, encoding="utf-8")
 
         # Inherit parent environment but override HOME to workspace
-        safe_env = dict(os.environ)
-        safe_env["HOME"] = str(work_dir)
-        safe_env["PYTHONDONTWRITEBYTECODE"] = "1"
+        safe_env = build_agent_exec_env(os.environ, home=work_dir)
 
         proc = await asyncio.create_subprocess_exec(
             *cmd_prefix, str(script_path),

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from app.services.sandbox.base import BaseSandboxBackend, ExecutionResult, SandboxCapabilities
 from app.services.sandbox.config import SandboxConfig
+from app.services.python_env import build_agent_exec_env, resolve_agent_python_bin
 
 
 # Security patterns - reused from agent_tools.py
@@ -45,20 +46,20 @@ def _check_code_safety(language: str, code: str, allow_network: bool = False) ->
     """Check code for dangerous patterns. Returns error message if unsafe, None if ok."""
     code_lower = code.lower()
 
-    if language == "bash":
-        # Always check dangerous patterns
-        for pattern in _DANGEROUS_BASH_ALWAYS:
-            if pattern.lower() in code_lower:
-                logger.warning(f"Blocked: dangerous command detected ({pattern.strip()})")
-                return f"Blocked: dangerous command detected ({pattern.strip()})"
-        # Network commands only when network is not allowed
-        if not allow_network:
-            for pattern in _DANGEROUS_BASH_NETWORK:
-                if pattern.lower() in code_lower:
-                    logger.warning(f"Blocked: network command not allowed ({pattern.strip()})")        
-                    return f"Blocked: network command not allowed ({pattern.strip()})"
-        if "../../" in code:
-            return "Blocked: directory traversal not allowed"
+    # if language == "bash":
+    #     # Always check dangerous patterns
+    #     for pattern in _DANGEROUS_BASH_ALWAYS:
+    #         if pattern.lower() in code_lower:
+    #             logger.warning(f"Blocked: dangerous command detected ({pattern.strip()})")
+    #             return f"Blocked: dangerous command detected ({pattern.strip()})"
+    #     # Network commands only when network is not allowed
+    #     if not allow_network:
+    #         for pattern in _DANGEROUS_BASH_NETWORK:
+    #             if pattern.lower() in code_lower:
+    #                 logger.warning(f"Blocked: network command not allowed ({pattern.strip()})")        
+    #                 return f"Blocked: network command not allowed ({pattern.strip()})"
+    #     if "../../" in code:
+    #         return "Blocked: directory traversal not allowed"
 
     # elif language == "python":
     #     # Always check dangerous patterns
@@ -73,17 +74,17 @@ def _check_code_safety(language: str, code: str, allow_network: bool = False) ->
     #                 logger.warning(f"Blocked: network operation not allowed ({pattern.strip()})")
     #                 return f"Blocked: network operation not allowed ({pattern.strip()})"
 
-    elif language == "node":
-        # Always check dangerous patterns
-        for pattern in _DANGEROUS_NODE_ALWAYS:
-            if pattern.lower() in code_lower:
-                return f"Blocked: unsafe operation detected ({pattern})"
-        # Network requires only when network is not allowed
-        if not allow_network:
-            for pattern in _DANGEROUS_NODE_NETWORK:
-                if pattern.lower() in code_lower:
-                    logger.warning(f"Blocked: network operation not allowed ({pattern.strip()})")
-                    return f"Blocked: network operation not allowed ({pattern.strip()})"
+    # elif language == "node":
+    #     # Always check dangerous patterns
+    #     for pattern in _DANGEROUS_NODE_ALWAYS:
+    #         if pattern.lower() in code_lower:
+    #             return f"Blocked: unsafe operation detected ({pattern})"
+    #     # Network requires only when network is not allowed
+    #     if not allow_network:
+    #         for pattern in _DANGEROUS_NODE_NETWORK:
+    #             if pattern.lower() in code_lower:
+    #                 logger.warning(f"Blocked: network operation not allowed ({pattern.strip()})")
+    #                 return f"Blocked: network operation not allowed ({pattern.strip()})"
 
     return None
 
@@ -112,8 +113,9 @@ class SubprocessBackend(BaseSandboxBackend):
     async def health_check(self) -> bool:
         """Check if basic system commands are available."""
         try:
+            python_bin = resolve_agent_python_bin()
             proc = await asyncio.create_subprocess_exec(
-                "python3", "--version",
+                python_bin, "--version",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -166,7 +168,7 @@ class SubprocessBackend(BaseSandboxBackend):
         # Determine command and file extension
         if language == "python":
             ext = ".py"
-            cmd_prefix = ["python3"]
+            cmd_prefix = [resolve_agent_python_bin()]
         elif language == "bash":
             ext = ".sh"
             cmd_prefix = ["bash"]
@@ -181,9 +183,7 @@ class SubprocessBackend(BaseSandboxBackend):
             script_path.write_text(code, encoding="utf-8")
 
             # Set up safe environment
-            safe_env = dict(os.environ)
-            safe_env["HOME"] = str(work_path)
-            safe_env["PYTHONDONTWRITEBYTECODE"] = "1"
+            safe_env = build_agent_exec_env(os.environ, home=work_path)
 
             # Execute
             proc = await asyncio.create_subprocess_exec(

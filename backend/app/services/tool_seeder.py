@@ -445,7 +445,7 @@ BUILTIN_TOOLS = [
             "properties": {
                 "language": {"type": "string", "enum": ["python", "bash", "node"], "description": "Programming language"},
                 "code": {"type": "string", "description": "Code to execute"},
-                "timeout": {"type": "integer", "description": "Max execution time in seconds (default 30, max 60)"},
+                "timeout": {"type": "integer", "description": "Max execution time in seconds (default 30, max 1800)"},
             },
             "required": ["language", "code"],
         },
@@ -457,7 +457,7 @@ BUILTIN_TOOLS = [
             "memory_limit": "256m",
             "allow_network": True,
             "default_timeout": 30,
-            "max_timeout": 60,
+            "max_timeout": 1800,
         },
         "config_schema": {
             "fields": [
@@ -507,15 +507,15 @@ BUILTIN_TOOLS = [
                     "type": "number",
                     "default": 30,
                     "min": 5,
-                    "max": 300,
+                    "max": 1800,
                 },
                 {
                     "key": "max_timeout",
                     "label": "Max Timeout (seconds)",
                     "type": "number",
-                    "default": 60,
+                    "default": 1800,
                     "min": 10,
-                    "max": 300,
+                    "max": 1800,
                 },
             ]
         },

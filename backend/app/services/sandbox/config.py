@@ -34,8 +34,8 @@ class SandboxConfig(BaseModel):
     api_url: str = ""
 
     # Common options
-    default_timeout: int = Field(default=30, ge=1, le=300)
-    max_timeout: int = Field(default=60, ge=1, le=300)
+    default_timeout: int = Field(default=30, ge=1, le=1800)
+    max_timeout: int = Field(default=1800, ge=1, le=1800)
 
     # Language mapping for API sandboxes
     # Maps our internal language names to API-specific language IDs
@@ -105,6 +105,6 @@ class SandboxConfig(BaseModel):
             memory_limit=get_value("memory_limit", "256m"),
             allow_network=get_value("allow_network", False),
             default_timeout=get_value("default_timeout", 30),
-            max_timeout=get_value("max_timeout", 60),
+            max_timeout=get_value("max_timeout", 1800),
         )
         return result

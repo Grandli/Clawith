@@ -101,11 +101,12 @@ class Settings(BaseSettings):
     SANDBOX_TYPE: SandboxType = SandboxType.SUBPROCESS
     SANDBOX_API_KEY: str = ""
     SANDBOX_API_URL: str = ""
+    AGENT_PYTHON_BIN: str = ""
     SANDBOX_CPU_LIMIT: str = "0.5"
     SANDBOX_MEMORY_LIMIT: str = "256m"
     SANDBOX_ALLOW_NETWORK: bool = True
     SANDBOX_DEFAULT_TIMEOUT: int = 30
-    SANDBOX_MAX_TIMEOUT: int = 60
+    SANDBOX_MAX_TIMEOUT: int = 1800
 
     model_config = {
         "env_file": [".env", "../.env"],
