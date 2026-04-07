@@ -6792,27 +6792,14 @@ async def _feishu_contacts_refresh(agent_id: uuid.UUID) -> None:
 # ─── Email Tool Helpers ─────────────────────────────────────
 
 async def _get_email_config(agent_id: uuid.UUID) -> dict:
-    """Retrieve per-agent email config from the send_email tool's AgentTool config."""
-    from app.models.tool import Tool, AgentTool
+    """Retrieve per-agent email config for send/read/reply email tools.
 
-    async with async_session() as db:
-        # Find the send_email tool
-        r = await db.execute(select(Tool).where(Tool.name == "send_email"))
-        tool = r.scalar_one_or_none()
-        if not tool:
-            return {}
-
-        # Get per-agent config
-        at_r = await db.execute(
-            select(AgentTool).where(
-                AgentTool.agent_id == agent_id,
-                AgentTool.tool_id == tool.id,
-            )
-        )
-        at = at_r.scalar_one_or_none()
-        agent_config = (at.config or {}) if at else {}
-        # Merge global + agent override
-        return {**(tool.config or {}), **agent_config}
+    Must use _get_tool_config (not raw Tool/AgentTool rows) so encrypted
+    fields like auth_code are decrypted — same as other tools. The UI
+    connection test sends plaintext config; saved DB values are encrypted.
+    """
+    cfg = await _get_tool_config(agent_id, "send_email")
+    return cfg if cfg else {}
 
 
 # ── Pages: public HTML hosting ──────────────────────────
