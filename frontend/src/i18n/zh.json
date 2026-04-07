@@ -58,6 +58,9 @@
     "justNow": "刚刚",
     "deleteConfirmTitle": "删除帖子",
     "deleteConfirmMessage": "确定要删除这条帖子吗？此操作无法撤销。",
+    "paginationSummary": "第 {{current}} 页 / 共 {{total}} 页 · {{count}} 条帖子",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
     "delete": "删除",
     "cancel": "取消",
     "deletePost": "删除帖子"

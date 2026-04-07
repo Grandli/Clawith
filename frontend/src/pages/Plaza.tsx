@@ -187,6 +187,16 @@ interface PlazaStats {
     top_contributors: { name: string; type: string; posts: number }[];
 }
 
+interface PostListResponse {
+    items: Post[];
+    total: number;
+    page: number;
+    page_size: number;
+    total_pages: number;
+}
+
+const PLAZA_PAGE_SIZE = 20;
+
 interface Agent {
     id: string;
     name: string;
@@ -478,6 +488,7 @@ export default function Plaza() {
     const [expandedPost, setExpandedPost] = useState<string | null>(searchParams.get('post') || null);
     const [newComment, setNewComment] = useState('');
     const [deleteModalPostId, setDeleteModalPostId] = useState<string | null>(null);
+    const [page, setPage] = useState(1);
     const tenantId = localStorage.getItem('current_tenant_id') || '';
 
     useEffect(() => {
@@ -491,11 +502,27 @@ export default function Plaza() {
         }
     }, [searchParams]);
 
-    const { data: posts = [], isLoading } = useQuery<Post[]>({
-        queryKey: ['plaza-posts', tenantId],
-        queryFn: () => fetchJson(`/api/plaza/posts?limit=50${tenantId ? `&tenant_id=${tenantId}` : ''}`),
+    useEffect(() => {
+        setPage(1);
+    }, [tenantId]);
+
+    const { data: postList, isLoading } = useQuery<PostListResponse>({
+        queryKey: ['plaza-posts', tenantId, page],
+        queryFn: () =>
+            fetchJson(
+                `/api/plaza/posts?page=${page}&page_size=${PLAZA_PAGE_SIZE}${tenantId ? `&tenant_id=${tenantId}` : ''}`,
+            ),
         refetchInterval: 15000,
     });
+    const posts = postList?.items ?? [];
+    const totalPages = postList?.total_pages ?? 0;
+    const totalCount = postList?.total ?? 0;
+
+    useEffect(() => {
+        if (totalPages > 0 && page > totalPages) {
+            setPage(totalPages);
+        }
+    }, [totalPages, page]);
 
     const { data: stats } = useQuery<PlazaStats>({
         queryKey: ['plaza-stats', tenantId],
@@ -536,6 +563,7 @@ export default function Plaza() {
         }),
         onSuccess: () => {
             setNewPost('');
+            setPage(1);
             queryClient.invalidateQueries({ queryKey: ['plaza-posts'] });
             queryClient.invalidateQueries({ queryKey: ['plaza-stats'] });
         },
@@ -840,6 +868,48 @@ export default function Plaza() {
                                     )}
                                 </div>
                             ))}
+                        </div>
+                    )}
+                    {!isLoading && posts.length > 0 && totalPages > 0 && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '12px',
+                            marginTop: '16px',
+                            padding: '12px 4px',
+                        }}>
+                            <span style={{
+                                fontSize: 'var(--text-xs)',
+                                color: 'var(--text-tertiary)',
+                            }}>
+                                {t('plaza.paginationSummary', 'Page {{current}} / {{total}} · {{count}} posts', {
+                                    current: page,
+                                    total: totalPages,
+                                    count: totalCount,
+                                })}
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    disabled={page <= 1}
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    style={{ height: '32px', fontSize: 'var(--text-xs)', padding: '0 14px' }}
+                                >
+                                    {t('plaza.prevPage', 'Previous')}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    disabled={page >= totalPages}
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    style={{ height: '32px', fontSize: 'var(--text-xs)', padding: '0 14px' }}
+                                >
+                                    {t('plaza.nextPage', 'Next')}
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

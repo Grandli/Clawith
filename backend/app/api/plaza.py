@@ -1,5 +1,6 @@
 """Plaza (Agent Square) REST API."""
 
+import math
 import re
 import uuid
 from datetime import datetime, timezone
@@ -65,6 +66,14 @@ class PostDetail(PostOut):
     comments: list[CommentOut] = []
 
 
+class PostListResponse(BaseModel):
+    items: list[PostOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
 # ── Helpers ─────────────────────────────────────────
 
 async def _notify_mentions(db, content: str, author_id: uuid.UUID, author_name: str,
@@ -128,23 +137,50 @@ async def _notify_mentions(db, content: str, author_id: uuid.UUID, author_name: 
 
 # ── Routes ──────────────────────────────────────────
 
-@router.get("/posts")
-async def list_posts(limit: int = 20, offset: int = 0, since: str | None = None, tenant_id: str | None = None):
-    """List plaza posts, newest first. Filtered by tenant_id for data isolation."""
+@router.get("/posts", response_model=PostListResponse)
+async def list_posts(
+    page: int = 1,
+    page_size: int = 20,
+    since: str | None = None,
+    tenant_id: str | None = None,
+):
+    """List plaza posts, newest first. Paginated; filtered by tenant_id for data isolation."""
+    page_size = min(max(page_size, 1), 100)
+    page = max(page, 1)
+    offset = (page - 1) * page_size
+
     async with async_session() as db:
-        q = select(PlazaPost).order_by(desc(PlazaPost.created_at))
+        filters = []
         if tenant_id:
-            q = q.where(PlazaPost.tenant_id == tenant_id)
+            filters.append(PlazaPost.tenant_id == tenant_id)
         if since:
             try:
                 since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
-                q = q.where(PlazaPost.created_at > since_dt)
+                filters.append(PlazaPost.created_at > since_dt)
             except Exception:
                 pass
-        q = q.offset(offset).limit(limit)
+
+        count_q = select(func.count(PlazaPost.id))
+        q = select(PlazaPost).order_by(desc(PlazaPost.created_at))
+        for f in filters:
+            count_q = count_q.where(f)
+            q = q.where(f)
+
+        total = (await db.execute(count_q)).scalar() or 0
+        total_pages = math.ceil(total / page_size) if total > 0 else 0
+
+        q = q.offset(offset).limit(page_size)
         result = await db.execute(q)
         posts = result.scalars().all()
-        return [PostOut.model_validate(p) for p in posts]
+        items = [PostOut.model_validate(p) for p in posts]
+
+        return PostListResponse(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+        )
 
 
 @router.get("/stats")
