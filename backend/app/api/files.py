@@ -2,6 +2,7 @@
 
 import os
 import uuid
+import mimetypes
 from pathlib import Path
 
 import aiofiles
@@ -114,6 +115,7 @@ async def download_file(
     agent_id: uuid.UUID,
     path: str,
     token: str = "",
+    inline: bool = False,
     credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
     db: AsyncSession = Depends(get_db),
 ):
@@ -147,7 +149,13 @@ async def download_file(
     target = _safe_path(agent_id, path)
     if not target.exists() or not target.is_file():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
-    return FileResponse(path=str(target), filename=target.name)
+
+    media_type, _ = mimetypes.guess_type(str(target))
+    headers = {}
+    if inline:
+        # For iframe/image preview: force browser to render instead of download.
+        headers["Content-Disposition"] = f'inline; filename="{target.name}"'
+    return FileResponse(path=str(target), filename=target.name, media_type=media_type, headers=headers)
 
 
 @router.put("/content")

@@ -63,6 +63,15 @@ function isImage(name: string): boolean {
     return IMAGE_EXTS.some(ext => n.endsWith(ext));
 }
 
+function isHtmlFile(name: string): boolean {
+    const n = name.toLowerCase();
+    return n.endsWith('.html') || n.endsWith('.htm');
+}
+
+function toInlinePreviewUrl(url: string): string {
+    return `${url}${url.includes('?') ? '&' : '?'}inline=1`;
+}
+
 // ─── Component ─────────────────────────────────────────
 
 export default function FileBrowser({
@@ -468,13 +477,14 @@ export default function FileBrowser({
     // ═══════════════════════════════════════════════════
     if (viewing) {
         const isText = isTextFile(viewing);
+        const isHtml = isHtmlFile(viewing);
         return (
             <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                     <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '12px' }}
                         onClick={() => { setViewing(null); setEditing(false); }}>← {t('common.back')}</button>
                     <span style={{ fontSize: '12px', fontFamily: 'monospace', color: 'var(--text-secondary)', flex: 1 }}>{viewing}</span>
-                    {isText && edit && (
+                    {isText && !isHtml && edit && (
                         !editing ? (
                             <button className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: '12px' }}
                                 onClick={() => { setEditContent(content); setEditing(true); }}>✏️ {t('agent.soul.editButton')}</button>
@@ -492,13 +502,37 @@ export default function FileBrowser({
                             <button className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: '12px' }}>⬇ {t('common.download', 'Download')}</button>
                         </a>
                     )}
-                    {canDelete && (
-                        <button className="btn btn-danger" style={{ padding: '4px 10px', fontSize: '12px' }}
-                            onClick={() => setDeleteTarget({ path: viewing, name: viewing.split('/').pop() || viewing })}>×</button>
-                    )}
+                    <button
+                        className="btn btn-secondary"
+                        style={{ padding: '4px 10px', fontSize: '12px' }}
+                        onClick={() => { setViewing(null); setEditing(false); }}
+                        title={t('common.close', 'Close')}
+                    >
+                        Close(关闭)
+                    </button>
                 </div>
                 <div className="card">
-                    {isText ? (
+                    {isHtml ? (
+                        api.downloadUrl ? (
+                            <div style={{ background: 'var(--bg-tertiary)', borderRadius: '8px', padding: '8px' }}>
+                                <iframe
+                                    title={viewing.split('/').pop() || 'html-preview'}
+                                    src={toInlinePreviewUrl(api.downloadUrl(viewing))}
+                                    style={{
+                                        width: '100%',
+                                        height: '70vh',
+                                        border: '1px solid var(--border-subtle)',
+                                        borderRadius: '6px',
+                                        background: '#fff',
+                                    }}
+                                />
+                            </div>
+                        ) : (
+                            <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-tertiary)' }}>
+                                Cannot preview HTML without download URL
+                            </div>
+                        )
+                    ) : isText ? (
                         editing ? (
                             <textarea ref={textareaRef} className="form-textarea" value={editContent} onChange={e => setEditContent(e.target.value)}
                                 style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '1.6', minHeight: '200px', resize: 'vertical', overflow: 'hidden' }} />
