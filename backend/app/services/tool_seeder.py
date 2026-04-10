@@ -1669,6 +1669,10 @@ async def seed_builtin_tools():
                 if existing.parameters_schema != t["parameters_schema"]:
                     existing.parameters_schema = t["parameters_schema"]
                     updated_fields.append("parameters_schema")
+                # Keep is_default in sync with seed (e.g. AgentBay tools must stay off by default)
+                if existing.is_default != t["is_default"]:
+                    existing.is_default = t["is_default"]
+                    updated_fields.append("is_default")
                 if updated_fields:
                     logger.info(f"[ToolSeeder] Updated {', '.join(updated_fields)}: {t['name']}")
 
