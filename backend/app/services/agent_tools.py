@@ -1359,6 +1359,13 @@ async def get_agent_tools_for_llm(agent_id: uuid.UUID) -> list[dict]:
     has_feishu = await _agent_has_feishu(agent_id)
     has_any_channel = await _agent_has_any_channel(agent_id)
     _always_tools = _always_core_tools + (_feishu_tools if has_feishu else []) + (_channel_tools if has_any_channel else [])
+    # Global default: Jina Search is disabled unless explicitly enabled in tool config.
+    jina_search_enabled = False
+    try:
+        jina_cfg = await _get_tool_config(agent_id, "jina_search") or {}
+        jina_search_enabled = bool(jina_cfg.get("enabled", False))
+    except Exception:
+        jina_search_enabled = False
 
     try:
         from app.models.tool import Tool, AgentTool
@@ -1383,6 +1390,8 @@ async def get_agent_tools_for_llm(agent_id: uuid.UUID) -> list[dict]:
 
                 # Skip feishu tools if the agent has no Feishu channel configured
                 if t.category == "feishu" and not has_feishu:
+                    continue
+                if t.name == "jina_search" and not jina_search_enabled:
                     continue
 
                 # Build OpenAI function-calling format
@@ -1412,6 +1421,8 @@ async def get_agent_tools_for_llm(agent_id: uuid.UUID) -> list[dict]:
         logger.error(f"[Tools] DB load failed, using fallback: {e}")
 
     # Fallback to hardcoded tools
+    if not jina_search_enabled:
+        return [t for t in AGENT_TOOLS if t["function"]["name"] != "jina_search"]
     return AGENT_TOOLS
 
 
@@ -1528,6 +1539,15 @@ async def _get_agent_tenant_id(agent_id: uuid.UUID) -> str | None:
     return None
 
 
+async def _is_jina_search_enabled(agent_id: uuid.UUID) -> bool:
+    """Jina search is opt-in and disabled by default."""
+    try:
+        cfg = await _get_tool_config(agent_id, "jina_search") or {}
+        return bool(cfg.get("enabled", False))
+    except Exception:
+        return False
+
+
 async def _execute_tool_direct(
     tool_name: str,
     arguments: dict,
@@ -1557,6 +1577,8 @@ async def _execute_tool_direct(
         elif tool_name == "web_search":
             return await _web_search(arguments, agent_id)
         elif tool_name == "jina_search":
+            if not await _is_jina_search_enabled(agent_id):
+                return "❌ Tool jina_search is disabled by default. Enable it in tool config first."
             return await _jina_search(arguments)
         elif tool_name == "send_feishu_message":
             return await _send_feishu_message(agent_id, arguments)
@@ -1678,8 +1700,12 @@ async def execute_tool(
         elif tool_name == "web_search":
             result = await _web_search(arguments, agent_id)
         elif tool_name == "jina_search":
+            if not await _is_jina_search_enabled(agent_id):
+                return "❌ Tool jina_search is disabled by default. Enable it in tool config first."
             result = await _jina_search(arguments)
         elif tool_name == "bing_search":
+            if not await _is_jina_search_enabled(agent_id):
+                return "❌ Tool jina_search is disabled by default. Enable it in tool config first."
             result = await _jina_search(arguments)  # redirect legacy to jina
         elif tool_name == "jina_read":
             result = await _jina_read(arguments)
@@ -1842,20 +1868,20 @@ async def _web_search(arguments: dict, agent_id: uuid.UUID | None = None) -> str
     language = config.get("language", "zh-CN")
 
     try:
-        if engine == "tavily" and api_key:
-            return await _search_tavily(query, api_key, max_results)
-        elif engine == "google" and api_key:
-            return await _search_google(query, api_key, max_results, language)
-        elif engine == "bing" and api_key:
-            return await _search_bing(query, api_key, max_results, language)
-        else:
-            return await _search_duckduckgo(query, max_results)
+        # if engine == "tavily" and api_key:
+        #     return await _search_tavily(query, api_key, max_results)
+        # elif engine == "google" and api_key:
+        #     return await _search_google(query, api_key, max_results, language)
+        # elif engine == "bing" and api_key:
+        #     return await _search_bing(query, api_key, max_results, language)
+        # else:
+        return await _search_duckduckgo(query, max_results)
     except Exception as e:
         return f"❌ Search error ({engine}): {str(e)[:200]}"
 
 
-async def _search_duckduckgo(query: str, max_results: int) -> str:
-    """Search via DuckDuckGo HTML (free, no API key)."""
+async def _search_duckduckgo_html_scrape(query: str, max_results: int) -> str:
+    """Legacy DuckDuckGo HTML page scrape (free, no API key). Used when ddgs is unavailable or empty."""
     import httpx, re
 
     async with httpx.AsyncClient(follow_redirects=True) as client:
@@ -1884,6 +1910,41 @@ async def _search_duckduckgo(query: str, max_results: int) -> str:
     if not results:
         return f'🔍 No results found for "{query}"'
     return f'🔍 DuckDuckGo results for "{query}" ({len(results)} items):\n\n' + "\n\n---\n\n".join(results)
+
+
+async def _search_duckduckgo(query: str, max_results: int) -> str:
+    """Search DuckDuckGo: prefer ddgs (duckduckgo_search successor), fall back to HTML scrape."""
+    import asyncio
+
+    def _ddgs_text_sync():
+        try:
+            from ddgs import DDGS
+        except ImportError:
+            from duckduckgo_search import DDGS
+
+        return list(DDGS().text(query, max_results=max_results))
+
+    rows: list = []
+    try:
+        rows = await asyncio.to_thread(_ddgs_text_sync)
+    except Exception as e:
+        logger.debug("DuckDuckGo ddgs search failed: {}", e)
+
+    results: list[str] = []
+    for row in rows[:max_results]:
+        if not isinstance(row, dict):
+            continue
+        title = str(row.get("title") or "").strip()
+        url = str(row.get("href") or row.get("url") or row.get("link") or "").strip()
+        snippet = str(row.get("body") or row.get("snippet") or "").strip()
+        if not url and not title:
+            continue
+        results.append(f"**{title}**\n{url}\n{snippet}")
+
+    if results:
+        return f'🔍 DuckDuckGo results for "{query}" ({len(results)} items):\n\n' + "\n\n---\n\n".join(results)
+
+    return await _search_duckduckgo_html_scrape(query, max_results)
 
 async def _get_jina_api_key() -> str:
     """Read Jina API key from DB system_settings first, then fall back to env."""

@@ -332,7 +332,7 @@ BUILTIN_TOOLS = [
         "description": "Search the internet using Jina AI (s.jina.ai). Returns high-quality results with full content. Requires Jina AI API key for higher rate limits.",
         "category": "search",
         "icon": "🔮",
-        "is_default": True,
+        "is_default": False,
         "parameters_schema": {
             "type": "object",
             "properties": {
@@ -341,9 +341,18 @@ BUILTIN_TOOLS = [
             },
             "required": ["query"],
         },
-        "config": {},
+        "config": {
+            "enabled": False,
+            "api_key": "",
+        },
         "config_schema": {
             "fields": [
+                {
+                    "key": "enabled",
+                    "label": "Enable Jina Search",
+                    "type": "boolean",
+                    "default": False,
+                },
                 {
                     "key": "api_key",
                     "label": "Jina AI API Key",
